@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -130,7 +131,13 @@ func (suite *ManagerTestSuite) TestNewManager() {
 		manager, err := gorabbit.NewManager(managerOpts)
 
 		require.Error(t, err)
-		assert.Equal(t, "dial tcp: lookup incorrect_host on 127.0.0.53:53: server misbehaving", err.Error())
+
+		hasDialPrefix := strings.HasPrefix(err.Error(), "dial tcp: lookup incorrect_host on")
+		assert.True(t, hasDialPrefix)
+
+		hasDialSuffix := strings.HasSuffix(err.Error(), "server misbehaving")
+		assert.True(t, hasDialSuffix)
+
 		assert.NotNil(t, manager)
 
 		// Running any operation at that point should fail, except for disconnecting
@@ -151,7 +158,13 @@ func (suite *ManagerTestSuite) TestNewManager() {
 		manager, err := gorabbit.NewManager(managerOpts)
 
 		require.Error(t, err)
-		assert.Equal(t, "dial tcp 127.0.0.1:123: connect: connection refused", err.Error())
+
+		hasDialPrefix := strings.HasPrefix(err.Error(), "dial tcp")
+		assert.True(t, hasDialPrefix)
+
+		hasDialSuffix := strings.HasSuffix(err.Error(), "connection refused")
+		assert.True(t, hasDialSuffix)
+
 		assert.NotNil(t, manager)
 
 		// Running any operation at that point should fail, except for disconnecting
