@@ -101,6 +101,9 @@ type mqttManager struct {
 
 	// channel holds the single channel from the connection.
 	channel *amqp.Channel
+
+	// marshaller holds the marshaller used to encode messages.
+	marshaller Marshaller
 }
 
 // NewManager will instantiate a new MQTTManager.
@@ -157,6 +160,11 @@ func newManagerFromOptions(options *ManagerOptions) (MQTTManager, error) {
 	if options.UseTLS {
 		protocol = securedProtocol
 	}
+
+	if options.Marshaller == nil {
+		options.Marshaller = defaultMarshaller
+	}
+	manager.marshaller = options.Marshaller
 
 	dialURL := fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, manager.Username, manager.Password, manager.Host, manager.Port, manager.Vhost)
 
@@ -320,14 +328,14 @@ func (manager *mqttManager) PushMessageToExchange(exchange, routingKey string, p
 	}
 
 	// We convert the payload to a []byte.
-	payloadBytes, err := json.Marshal(payload)
+	payloadBytes, err := manager.marshaller.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
 	// We build the amqp.Publishing object.
 	publishing := amqp.Publishing{
-		ContentType:  "application/json",
+		ContentType:  manager.marshaller.ContentType(),
 		Body:         payloadBytes,
 		Type:         routingKey,
 		Priority:     PriorityMedium.Uint8(),

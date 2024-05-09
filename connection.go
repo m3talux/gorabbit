@@ -48,6 +48,9 @@ type amqpConnection struct {
 
 	// connectionType defines the connectionType.
 	connectionType connectionType
+
+	// marshaller defines the marshalling method used to encode messages.
+	marshaller Marshaller
 }
 
 // newConsumerConnection initializes a new consumer amqpConnection with given arguments.
@@ -57,8 +60,17 @@ type amqpConnection struct {
 //   - keepAlive will keep the connection alive if true.
 //   - retryDelay defines the delay between each re-connection, if the keepAlive flag is set to true.
 //   - logger is the parent logger.
-func newConsumerConnection(ctx context.Context, uri, connectionName string, keepAlive bool, retryDelay time.Duration, logger logger) *amqpConnection {
-	return newConnection(ctx, uri, connectionName, keepAlive, retryDelay, logger, connectionTypeConsumer)
+//   - marshaller is the Marshaller used for encoding messages.
+func newConsumerConnection(
+	ctx context.Context,
+	uri string,
+	connectionName string,
+	keepAlive bool,
+	retryDelay time.Duration,
+	logger logger,
+	marshaller Marshaller,
+) *amqpConnection {
+	return newConnection(ctx, uri, connectionName, keepAlive, retryDelay, logger, connectionTypeConsumer, marshaller)
 }
 
 // newPublishingConnection initializes a new publisher amqpConnection with given arguments.
@@ -71,6 +83,7 @@ func newConsumerConnection(ctx context.Context, uri, connectionName string, keep
 //   - publishingCacheSize defines the maximum length of failed publishing cache.
 //   - publishingCacheTTL defines the time to live for failed publishing in cache.
 //   - logger is the parent logger.
+//   - marshaller is the Marshaller used for encoding messages.
 func newPublishingConnection(
 	ctx context.Context,
 	uri string,
@@ -81,8 +94,9 @@ func newPublishingConnection(
 	publishingCacheSize uint64,
 	publishingCacheTTL time.Duration,
 	logger logger,
+	marshaller Marshaller,
 ) *amqpConnection {
-	conn := newConnection(ctx, uri, connectionName, keepAlive, retryDelay, logger, connectionTypePublisher)
+	conn := newConnection(ctx, uri, connectionName, keepAlive, retryDelay, logger, connectionTypePublisher, marshaller)
 
 	conn.maxRetry = maxRetry
 	conn.publishingCacheSize = publishingCacheSize
@@ -98,6 +112,7 @@ func newPublishingConnection(
 //   - keepAlive will keep the connection alive if true.
 //   - retryDelay defines the delay between each re-connection, if the keepAlive flag is set to true.
 //   - logger is the parent logger.
+//   - marshaller is the Marshaller used for encoding messages.
 func newConnection(
 	ctx context.Context,
 	uri string,
@@ -106,6 +121,7 @@ func newConnection(
 	retryDelay time.Duration,
 	logger logger,
 	connectionType connectionType,
+	marshaller Marshaller,
 ) *amqpConnection {
 	conn := &amqpConnection{
 		ctx:            ctx,
@@ -119,6 +135,7 @@ func newConnection(
 			"type":    connectionType,
 		}),
 		connectionType: connectionType,
+		marshaller:     marshaller,
 	}
 
 	conn.logger.Debug("Initializing new amqp connection", logField{Key: "uri", Value: conn.uriForLog()})
@@ -303,7 +320,7 @@ func (a *amqpConnection) registerConsumer(consumer MessageConsumer) error {
 		return err
 	}
 
-	channel := newConsumerChannel(a.ctx, a.connection, a.keepAlive, a.retryDelay, &consumer, a.logger)
+	channel := newConsumerChannel(a.ctx, a.connection, a.keepAlive, a.retryDelay, &consumer, a.logger, a.marshaller)
 
 	a.channels = append(a.channels, channel)
 
@@ -315,7 +332,10 @@ func (a *amqpConnection) registerConsumer(consumer MessageConsumer) error {
 func (a *amqpConnection) publish(exchange, routingKey string, payload []byte, options *PublishingOptions) error {
 	publishingChannel := a.channels.publishingChannel()
 	if publishingChannel == nil {
-		publishingChannel = newPublishingChannel(a.ctx, a.connection, a.keepAlive, a.retryDelay, a.maxRetry, a.publishingCacheSize, a.publishingCacheTTL, a.logger)
+		publishingChannel = newPublishingChannel(
+			a.ctx, a.connection, a.keepAlive, a.retryDelay, a.maxRetry,
+			a.publishingCacheSize, a.publishingCacheTTL, a.logger, a.marshaller,
+		)
 
 		a.channels = append(a.channels, publishingChannel)
 	}

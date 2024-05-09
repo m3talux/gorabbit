@@ -151,6 +151,10 @@ func newClientFromOptions(options *ClientOptions) MQTTClient {
 		protocol = securedProtocol
 	}
 
+	if options.Marshaller == nil {
+		options.Marshaller = defaultMarshaller
+	}
+
 	dialURL := fmt.Sprintf("%s://%s:%s@%s:%d/%s", protocol, client.Username, client.Password, client.Host, client.Port, client.Vhost)
 
 	client.connectionManager = newConnectionManager(
@@ -163,6 +167,7 @@ func newClientFromOptions(options *ClientOptions) MQTTClient {
 		options.PublishingCacheSize,
 		options.PublishingCacheTTL,
 		client.logger,
+		options.Marshaller,
 	)
 
 	return client

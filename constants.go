@@ -30,6 +30,8 @@ const (
 	defaultMode                = Release
 )
 
+var defaultMarshaller = NewJSONMarshaller()
+
 // Default values for the amqp Config.
 const (
 	defaultHeartbeat = 10 * time.Second

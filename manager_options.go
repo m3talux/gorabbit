@@ -24,18 +24,22 @@ type ManagerOptions struct {
 
 	// Mode will specify whether logs are enabled or not.
 	Mode string
+
+	// Marshaller defines the content type used for messages and how they're marshalled (default: JSON).
+	Marshaller Marshaller
 }
 
 // DefaultManagerOptions will return a ManagerOptions with default values.
 func DefaultManagerOptions() *ManagerOptions {
 	return &ManagerOptions{
-		Host:     defaultHost,
-		Port:     defaultPort,
-		Username: defaultUsername,
-		Password: defaultPassword,
-		Vhost:    defaultVhost,
-		UseTLS:   defaultUseTLS,
-		Mode:     defaultMode,
+		Host:       defaultHost,
+		Port:       defaultPort,
+		Username:   defaultUsername,
+		Password:   defaultPassword,
+		Vhost:      defaultVhost,
+		UseTLS:     defaultUseTLS,
+		Mode:       defaultMode,
+		Marshaller: defaultMarshaller,
 	}
 }
 
@@ -123,6 +127,13 @@ func (m *ManagerOptions) SetMode(mode string) *ManagerOptions {
 	if isValidMode(mode) {
 		m.Mode = mode
 	}
+
+	return m
+}
+
+// SetMarshaller will assign the Marshaller.
+func (m *ManagerOptions) SetMarshaller(marshaller Marshaller) *ManagerOptions {
+	m.Marshaller = marshaller
 
 	return m
 }

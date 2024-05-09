@@ -77,6 +77,9 @@ type amqpChannel struct {
 
 	// connectionType defines the connectionType.
 	connectionType connectionType
+
+	// marshaller defines the marshalling method used to encode messages.
+	marshaller Marshaller
 }
 
 // newConsumerChannel instantiates a new consumerChannel and amqpChannel for method inheritance.
@@ -87,6 +90,7 @@ type amqpChannel struct {
 //   - consumer is the MessageConsumer that will hold consumption information.
 //   - maxRetry is the retry header for each message.
 //   - logger is the parent logger.
+//   - marshaller is the Marshaller used for encoding messages.
 func newConsumerChannel(
 	ctx context.Context,
 	connection *amqp.Connection,
@@ -94,6 +98,7 @@ func newConsumerChannel(
 	retryDelay time.Duration,
 	consumer *MessageConsumer,
 	logger logger,
+	marshaller Marshaller,
 ) *amqpChannel {
 	channel := &amqpChannel{
 		ctx:        ctx,
@@ -119,6 +124,7 @@ func newConsumerChannel(
 		connectionType:    connectionTypeConsumer,
 		consumptionHealth: make(consumptionHealth),
 		consumer:          consumer,
+		marshaller:        marshaller,
 	}
 
 	// We open an initial channel.
@@ -141,6 +147,7 @@ func newConsumerChannel(
 //   - publishingCacheSize is the maximum cache size of failed publishing.
 //   - publishingCacheTTL defines the time to live for each failed publishing that was put in cache.
 //   - logger is the parent logger.
+//   - marshaller is the Marshaller used for encoding messages.
 func newPublishingChannel(
 	ctx context.Context,
 	connection *amqp.Connection,
@@ -150,6 +157,7 @@ func newPublishingChannel(
 	publishingCacheSize uint64,
 	publishingCacheTTL time.Duration,
 	logger logger,
+	marshaller Marshaller,
 ) *amqpChannel {
 	channel := &amqpChannel{
 		ctx:        ctx,
@@ -171,6 +179,7 @@ func newPublishingChannel(
 		connectionType:  connectionTypePublisher,
 		publishingCache: newTTLMap[string, mqttPublishing](publishingCacheSize, publishingCacheTTL),
 		maxRetry:        maxRetry,
+		marshaller:      marshaller,
 	}
 
 	// We open an initial channel.
@@ -521,7 +530,7 @@ func (c *amqpChannel) retryDelivery(delivery *amqp.Delivery, alreadyAcknowledged
 
 				// We create a new publishing which is a copy of the old one but with a decremented xDeathCountHeader.
 				newPublishing := amqp.Publishing{
-					ContentType:  "application/json",
+					ContentType:  c.marshaller.ContentType(),
 					Body:         delivery.Body,
 					Type:         delivery.RoutingKey,
 					Priority:     delivery.Priority,
@@ -554,7 +563,7 @@ func (c *amqpChannel) retryDelivery(delivery *amqp.Delivery, alreadyAcknowledged
 // publish will publish a message with the given configuration.
 func (c *amqpChannel) publish(exchange string, routingKey string, payload []byte, options *PublishingOptions) error {
 	publishing := &amqp.Publishing{
-		ContentType:  "application/json",
+		ContentType:  c.marshaller.ContentType(),
 		Body:         payload,
 		Type:         routingKey,
 		Priority:     PriorityMedium.Uint8(),

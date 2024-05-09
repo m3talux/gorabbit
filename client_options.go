@@ -46,6 +46,9 @@ type ClientOptions struct {
 
 	// Mode will specify whether logs are enabled or not.
 	Mode string
+
+	// Marshaller defines the content type used for messages and how they're marshalled (default: JSON).
+	Marshaller Marshaller
 }
 
 // DefaultClientOptions will return a ClientOptions with default values.
@@ -63,6 +66,7 @@ func DefaultClientOptions() *ClientOptions {
 		PublishingCacheTTL:  defaultPublishingCacheTTL,
 		PublishingCacheSize: defaultPublishingCacheSize,
 		Mode:                defaultMode,
+		Marshaller:          defaultMarshaller,
 	}
 }
 
@@ -192,6 +196,13 @@ func (c *ClientOptions) SetMode(mode string) *ClientOptions {
 	if isValidMode(mode) {
 		c.Mode = mode
 	}
+
+	return c
+}
+
+// SetMarshaller will assign the Marshaller.
+func (c *ClientOptions) SetMarshaller(marshaller Marshaller) *ClientOptions {
+	c.Marshaller = marshaller
 
 	return c
 }

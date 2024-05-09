@@ -2,7 +2,6 @@ package gorabbit
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 )
 
@@ -12,6 +11,9 @@ type connectionManager struct {
 
 	// publisherConnection holds the independent publishing connection.
 	publisherConnection *amqpConnection
+
+	// marshaller holds the marshaller used to encode messages.
+	marshaller Marshaller
 }
 
 // newConnectionManager instantiates a new connectionManager with given arguments.
@@ -25,10 +27,17 @@ func newConnectionManager(
 	publishingCacheSize uint64,
 	publishingCacheTTL time.Duration,
 	logger logger,
+	marshaller Marshaller,
 ) *connectionManager {
 	c := &connectionManager{
-		consumerConnection:  newConsumerConnection(ctx, uri, connectionName, keepAlive, retryDelay, logger),
-		publisherConnection: newPublishingConnection(ctx, uri, connectionName, keepAlive, retryDelay, maxRetry, publishingCacheSize, publishingCacheTTL, logger),
+		consumerConnection: newConsumerConnection(
+			ctx, uri, connectionName, keepAlive, retryDelay, logger, marshaller,
+		),
+		publisherConnection: newPublishingConnection(
+			ctx, uri, connectionName, keepAlive, retryDelay, maxRetry,
+			publishingCacheSize, publishingCacheTTL, logger, marshaller,
+		),
+		marshaller: marshaller,
 	}
 
 	return c
@@ -75,7 +84,7 @@ func (c *connectionManager) publish(exchange, routingKey string, payload interfa
 		return errPublisherConnectionNotInitialized
 	}
 
-	payloadBytes, err := json.Marshal(payload)
+	payloadBytes, err := c.marshaller.Marshal(payload)
 	if err != nil {
 		return err
 	}
