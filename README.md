@@ -89,20 +89,21 @@ parameter.
 
 ### Client options
 
-| Property            | Description                                             | Default Value |
-|---------------------|---------------------------------------------------------|---------------|
-| Host                | The hostname of the RabbitMQ server                     | 127.0.0.1     |
-| Port                | The port of the RabbitMQ server                         | 5672          |
-| Username            | The plain authentication username                       | guest         |
-| Password            | The plain authentication password                       | guest         |
-| Vhost               | The specific vhost to use when connection to CloudAMQP  |               |
-| UseTLS              | The flag that activates the use of TLS (amqps)          | false         |
-| KeepAlive           | The flag that activates retry and re-connect mechanisms | true          |
-| RetryDelay          | The delay between each retry and re-connection          | 3 seconds     |
-| MaxRetry            | The max number of message retry if it failed to process | 5             |
-| PublishingCacheTTL  | The time to live for a failed publish when set in cache | 60 seconds    |
-| PublishingCacheSize | The max number of failed publish to add into cache      | 128           |
-| Mode                | The mode defines whether logs are shown or not          | Release       |
+| Property            | Description                                                   | Default Value |
+|---------------------|---------------------------------------------------------------|---------------|
+| Host                | The hostname of the RabbitMQ server                           | 127.0.0.1     |
+| Port                | The port of the RabbitMQ server                               | 5672          |
+| Username            | The plain authentication username                             | guest         |
+| Password            | The plain authentication password                             | guest         |
+| Vhost               | The specific vhost to use when connection to CloudAMQP        |               |
+| UseTLS              | The flag that activates the use of TLS (amqps)                | false         |
+| KeepAlive           | The flag that activates retry and re-connect mechanisms       | true          |
+| RetryDelay          | The delay between each retry and re-connection                | 3 seconds     |
+| MaxRetry            | The max number of message retry if it failed to process       | 5             |
+| PublishingCacheTTL  | The time to live for a failed publish when set in cache       | 60 seconds    |
+| PublishingCacheSize | The max number of failed publish to add into cache            | 128           |
+| Mode                | The mode defines whether logs are shown or not                | Release       |
+| Marshaller          | The content type used for messages and how they're marshalled | JSON          |
 
 ### Client with default options
 
@@ -304,15 +305,16 @@ parameter.
 
 ### Manager options
 
-| Property            | Description                                             | Default Value |
-|---------------------|---------------------------------------------------------|---------------|
-| Host                | The hostname of the RabbitMQ server                     | 127.0.0.1     |
-| Port                | The port of the RabbitMQ server                         | 5672          |
-| Username            | The plain authentication username                       | guest         |
-| Password            | The plain authentication password                       | guest         |
-| Vhost               | The specific vhost to use when connection to CloudAMQP  |               |
-| UseTLS              | The flag that activates the use of TLS (amqps)          | false         |
-| Mode                | The mode defines whether logs are shown or not          | Release       |
+| Property   | Description                                                   | Default Value |
+|------------|---------------------------------------------------------------|---------------|
+| Host       | The hostname of the RabbitMQ server                           | 127.0.0.1     |
+| Port       | The port of the RabbitMQ server                               | 5672          |
+| Username   | The plain authentication username                             | guest         |
+| Password   | The plain authentication password                             | guest         |
+| Vhost      | The specific vhost to use when connection to CloudAMQP        |               |
+| UseTLS     | The flag that activates the use of TLS (amqps)                | false         |
+| Mode       | The mode defines whether logs are shown or not                | Release       |
+| Marshaller | The content type used for messages and how they're marshalled | JSON          |
 
 ### Manager with default options
 
