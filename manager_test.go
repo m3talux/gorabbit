@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/KardinalAI/gorabbit"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -509,6 +510,203 @@ func (suite *ManagerTestSuite) TestGetNumberOfMessages() {
 		require.Error(t, countErr)
 		assert.Equal(t, "Exception (404) Reason: \"NOT_FOUND - no queue 'non_existing_queue' in vhost '/'\"", countErr.Error())
 		assert.Equal(t, -1, count)
+	})
+
+	require.NoError(t, manager.Disconnect())
+}
+
+func (suite *ManagerTestSuite) TestPushMessageToExchange() {
+	t := suite.T()
+
+	t.Setenv("RABBITMQ_HOST", suite.rabbitMQContainer.ContainerHost)
+	t.Setenv("RABBITMQ_PORT", strconv.Itoa(int(suite.rabbitMQContainer.ContainerPort)))
+	t.Setenv("RABBITMQ_USERNAME", suite.rabbitMQContainer.Username)
+	t.Setenv("RABBITMQ_PASSWORD", suite.rabbitMQContainer.Password)
+
+	manager, err := gorabbit.NewManagerFromEnv()
+
+	require.NoError(t, err)
+	assert.NotNil(t, manager)
+
+	t.Run("Push message to exchange", func(t *testing.T) {
+		queueConfig := gorabbit.QueueConfig{
+			Name:      "test_queue",
+			Durable:   true,
+			Exclusive: false,
+		}
+
+		err = manager.CreateQueue(queueConfig)
+
+		require.NoError(t, err)
+
+		exchangeConfig := gorabbit.ExchangeConfig{
+			Name: "test_exchange",
+			Type: "topic",
+		}
+
+		err = manager.CreateExchange(exchangeConfig)
+
+		require.NoError(t, err)
+
+		err = manager.BindExchangeToQueueViaRoutingKey(exchangeConfig.Name, queueConfig.Name, "routing_key")
+
+		require.NoError(t, err)
+
+		err = manager.PushMessageToExchange(exchangeConfig.Name, "routing_key", "Some message")
+
+		// Small sleep for allowing message to be sent.
+		time.Sleep(50 * time.Millisecond)
+
+		require.NoError(t, err)
+
+		count, countErr := manager.GetNumberOfMessages(queueConfig.Name)
+
+		require.NoError(t, countErr)
+		assert.Equal(t, 1, count)
+
+		require.NoError(t, manager.PurgeQueue(queueConfig.Name))
+
+		count, countErr = manager.GetNumberOfMessages(queueConfig.Name)
+
+		require.NoError(t, countErr)
+		assert.Zero(t, count)
+
+		require.NoError(t, manager.DeleteExchange(exchangeConfig.Name))
+		require.NoError(t, manager.DeleteQueue(queueConfig.Name))
+	})
+
+	t.Run("Pushing message to non-existing exchange should still work", func(t *testing.T) {
+		err = manager.PushMessageToExchange("non_existing_exchange", "routing_key", "Some message")
+
+		// Small sleep for allowing message to be sent.
+		time.Sleep(50 * time.Millisecond)
+
+		require.NoError(t, err)
+	})
+
+	require.NoError(t, manager.Disconnect())
+}
+
+func (suite *ManagerTestSuite) TestPopMessageFromQueue() {
+	t := suite.T()
+
+	t.Setenv("RABBITMQ_HOST", suite.rabbitMQContainer.ContainerHost)
+	t.Setenv("RABBITMQ_PORT", strconv.Itoa(int(suite.rabbitMQContainer.ContainerPort)))
+	t.Setenv("RABBITMQ_USERNAME", suite.rabbitMQContainer.Username)
+	t.Setenv("RABBITMQ_PASSWORD", suite.rabbitMQContainer.Password)
+
+	manager, err := gorabbit.NewManagerFromEnv()
+
+	require.NoError(t, err)
+	assert.NotNil(t, manager)
+
+	t.Run("Push message to exchange and consume it", func(t *testing.T) {
+		queueConfig := gorabbit.QueueConfig{
+			Name:      "test_queue",
+			Durable:   true,
+			Exclusive: false,
+		}
+
+		err = manager.CreateQueue(queueConfig)
+
+		require.NoError(t, err)
+
+		exchangeConfig := gorabbit.ExchangeConfig{
+			Name: "test_exchange",
+			Type: "topic",
+		}
+
+		err = manager.CreateExchange(exchangeConfig)
+
+		require.NoError(t, err)
+
+		err = manager.BindExchangeToQueueViaRoutingKey(exchangeConfig.Name, queueConfig.Name, "routing_key")
+
+		require.NoError(t, err)
+
+		err = manager.PushMessageToExchange(exchangeConfig.Name, "routing_key", "Some message")
+
+		// Small sleep for allowing message to be sent.
+		time.Sleep(50 * time.Millisecond)
+
+		require.NoError(t, err)
+
+		count, countErr := manager.GetNumberOfMessages(queueConfig.Name)
+
+		require.NoError(t, countErr)
+		assert.Equal(t, 1, count)
+
+		delivery, popErr := manager.PopMessageFromQueue(queueConfig.Name, true)
+
+		require.NoError(t, popErr)
+		assert.Equal(t, "\"Some message\"", string(delivery.Body))
+
+		require.NoError(t, manager.PurgeQueue(queueConfig.Name))
+
+		count, countErr = manager.GetNumberOfMessages(queueConfig.Name)
+
+		require.NoError(t, countErr)
+		assert.Zero(t, count)
+
+		require.NoError(t, manager.DeleteExchange(exchangeConfig.Name))
+		require.NoError(t, manager.DeleteQueue(queueConfig.Name))
+	})
+
+	t.Run("Popping message from non-existing queue", func(t *testing.T) {
+		delivery, popErr := manager.PopMessageFromQueue("non_existing_queue", true)
+
+		require.Error(t, popErr)
+		assert.Nil(t, delivery)
+		assert.Equal(t, "Exception (404) Reason: \"NOT_FOUND - no queue 'non_existing_queue' in vhost '/'\"", popErr.Error())
+	})
+
+	t.Run("Popping message from existent empty queue", func(t *testing.T) {
+		queueConfig := gorabbit.QueueConfig{
+			Name:      "test_queue",
+			Durable:   true,
+			Exclusive: false,
+		}
+
+		err = manager.CreateQueue(queueConfig)
+
+		require.NoError(t, err)
+
+		delivery, popErr := manager.PopMessageFromQueue(queueConfig.Name, true)
+
+		require.Error(t, popErr)
+		require.Equal(t, "queue is empty", popErr.Error())
+		assert.Nil(t, delivery)
+
+		require.NoError(t, manager.DeleteQueue(queueConfig.Name))
+	})
+
+	require.NoError(t, manager.Disconnect())
+}
+
+func (suite *ManagerTestSuite) TestSetupFromDefinitions() {
+	t := suite.T()
+
+	t.Setenv("RABBITMQ_HOST", suite.rabbitMQContainer.ContainerHost)
+	t.Setenv("RABBITMQ_PORT", strconv.Itoa(int(suite.rabbitMQContainer.ContainerPort)))
+	t.Setenv("RABBITMQ_USERNAME", suite.rabbitMQContainer.Username)
+	t.Setenv("RABBITMQ_PASSWORD", suite.rabbitMQContainer.Password)
+
+	manager, err := gorabbit.NewManagerFromEnv()
+
+	require.NoError(t, err)
+	assert.NotNil(t, manager)
+
+	t.Run("Setting up from definitions with wrong path", func(t *testing.T) {
+		err = manager.SetupFromDefinitions("wrong-path.json")
+
+		require.Error(t, err)
+		assert.Equal(t, "open wrong-path.json: no such file or directory", err.Error())
+	})
+
+	t.Run("Setting up from definitions with right path", func(t *testing.T) {
+		err = manager.SetupFromDefinitions("assets/definitions.example.json")
+
+		require.NoError(t, err)
 	})
 
 	require.NoError(t, manager.Disconnect())
